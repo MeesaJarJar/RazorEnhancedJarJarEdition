@@ -76,7 +76,47 @@ namespace RazorEnhanced
                 }
             }
         }
-
+     /// <summary>
+     /// Retrieves a list of player locations currently visible on the World Map.
+     /// The method uses reflection to access the WorldMapEntityManager in ClassicUO and returns the player names,
+     /// serial numbers, and their X and Y coordinates.
+     /// </summary>
+     /// <returns>
+     /// A list of tuples, each containing the player's name (or 'out of range' if not available), their serial number, 
+     /// and their X and Y coordinates on the map.
+     /// </returns>   
+     public static List<(string Name, uint Serial, int X, int Y)> GetWorldMapPlayerLocations()
+        {
+            var playerLocations = new List<(string Name, uint Serial, int X, int Y)>();
+    
+            // Access WorldMapEntityManager
+            var worldMapEntityManagerType = ClassicUOClient.CUOAssembly?.GetType("ClassicUO.Game.Managers.WorldMapEntityManager");
+            if (worldMapEntityManagerType != null)
+            {
+                var entitiesProperty = worldMapEntityManagerType.GetProperty("Entities", BindingFlags.Public | BindingFlags.Instance);
+                var worldMapManagerInstance = worldMapEntityManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+    
+                if (entitiesProperty != null && worldMapManagerInstance != null)
+                {
+                    var entities = entitiesProperty.GetValue(worldMapManagerInstance) as IDictionary<uint, object>;
+                    if (entities != null)
+                    {
+                        foreach (var entity in entities.Values)
+                        {
+                            var entityType = entity.GetType();
+                            var serial = (uint)entityType.GetProperty("Serial").GetValue(entity);
+                            var name = entityType.GetProperty("Name").GetValue(entity) as string ?? "out of range";
+                            var x = (int)entityType.GetProperty("X").GetValue(entity);
+                            var y = (int)entityType.GetProperty("Y").GetValue(entity);
+    
+                            playerLocations.Add((name, serial, x, y));
+                        }
+                    }
+                }
+            }
+    
+            return playerLocations;
+        }
         /// <summary>
         /// Invokes the GoToMarker function inside the CUO code
         /// Map must be open for this to work
